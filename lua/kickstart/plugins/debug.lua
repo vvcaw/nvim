@@ -25,6 +25,7 @@ return {
 
     -- Add your own debuggers here
     'leoluz/nvim-dap-go',
+    'theHamsta/nvim-dap-virtual-text',
   },
   keys = {
     -- Basic debugging keymaps, feel free to change to your liking!
@@ -40,6 +41,10 @@ return {
   config = function()
     local dap = require 'dap'
     local dapui = require 'dapui'
+    local dap_virtual_text = require 'nvim-dap-virtual-text'
+
+    -- Dap Virtual Text
+    dap_virtual_text.setup()
 
     require('mason-nvim-dap').setup {
       -- Makes a best effort to setup the various debuggers with
@@ -104,6 +109,68 @@ return {
         -- On Windows delve must be run attached or it crashes.
         -- See https://github.com/leoluz/nvim-dap-go/blob/main/README.md#configuring
         detached = vim.fn.has 'win32' == 0,
+      },
+    }
+
+    dap.adapters.gdb = {
+      type = 'executable',
+      command = 'gdb',
+      args = { '--quiet', '-nx', '-i', 'dap' },
+    }
+
+    -- Configurations
+    dap.configurations = {
+      c = {
+        {
+          name = 'Launch file',
+          type = 'gdb',
+          request = 'launch',
+          program = function() return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file') end,
+          cwd = '${workspaceFolder}',
+          stopAtEntry = false,
+          MIMode = 'lldb',
+        },
+      },
+      cpp = {
+        {
+          name = 'LF',
+          type = 'gdb',
+          request = 'launch',
+          -- program = "/usr/bin/gdb",
+          program = function()
+            return vim.fn.input {
+              prompt = 'Pfad zur ausführbaren Datei zum Debuggen: ',
+              default = vim.fn.getcwd() .. '/',
+              completion = 'file',
+            }
+          end,
+          cwd = '${workspaceFolder}',
+          stopAtBeginningOfMainSubprogram = true,
+          console = 'integratedTerminal',
+        },
+        {
+          name = 'Run executable with arguments (GDB)',
+          type = 'gdb',
+          request = 'launch',
+          -- This requires special handling of 'run_last', see
+          -- https://github.com/mfussenegger/nvim-dap/issues/1025#issuecomment-1695852355
+          program = function()
+            local path = vim.fn.input {
+              prompt = 'Path to executable: ',
+              default = vim.fn.getcwd() .. '/',
+              completion = 'file',
+            }
+
+            return (path and path ~= '') and path or dap.ABORT
+          end,
+          stopAtBeginningOfMainSubprogram = true,
+          args = function()
+            local args_str = vim.fn.input {
+              prompt = 'Arguments: ',
+            }
+            return vim.split(args_str, '|')
+          end,
+        },
       },
     }
   end,
